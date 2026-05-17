@@ -1,0 +1,34 @@
+# Secrets
+config/openai.env
+.env
+*.env.local
+
+# Scan artifacts
+scans/
+reports/
+logs/
+
+# Runtime sidecars
+.current_scan_domain
+.current_scan_env
+.current_scan_scope.json
+.workflow_id
+
+# Local logs (portal/n8n)
+logs/*.log
+
+# Python
+.venv-portal/
+__pycache__/
+*.pyc
+.Python
+
+# n8n / IDE
+.n8n/
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

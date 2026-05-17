@@ -1,0 +1,8 @@
+{
+  "program": "Example Bug Bounty",
+  "root_domain": "example.com",
+  "mode": "subdomains",
+  "in_scope": ["example.com", "*.example.com"],
+  "out_of_scope": ["staging.example.com", "mail.example.com"],
+  "notes": "Only test assets listed in the program policy. No production payment flows."
+}

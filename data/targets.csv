@@ -1,0 +1,9 @@
+program,domain,notes,in_scope
+OWASP WebGoat Practice,zero.webappsecurity.com,Public OWASP training site,yes
+IBM Altoro Mutual,demo.testfire.net,IBM AppScan demo bank app,yes
+OWASP Juice Shop,juice-shop.herokuapp.com,OWASP intentionally vulnerable web app,yes
+Troy Hunt Demo,hack-yourself-first.com,Intentionally vulnerable demo by Troy Hunt,yes
+Acunetix ASP Test,testaspnet.vulnweb.com,Acunetix public test application,yes
+Nmap Demo,scanme.nmap.org,Nmap authorized scan demonstration host,yes
+Acunetix PHP Test,testphp.vulnweb.com,Acunetix PHP test site (may be unreachable from some networks),yes
+Acunetix HTML5 Test,testhtml5.vulnweb.com,Acunetix HTML5 test site (may be unreachable from some networks),yes

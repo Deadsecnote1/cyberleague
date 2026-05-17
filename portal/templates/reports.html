@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Reports — Cyber League{% endblock %}
+{% block content %}
+<a href="/" class="back-link">← Dashboard</a>
+
+<div class="page-header">
+  <h1>Reports</h1>
+  <p class="lead">HTML and AI-generated reports from completed pipeline runs.</p>
+</div>
+
+{% if not reports %}
+<p class="muted">No reports in <code>reports/</code> yet. Finish a scan to generate one.</p>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>File</th><th>Modified</th><th>Size</th><th></th></tr></thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td>{{ r.name }}{% if r.kind == 'ai' %} <span class="badge info">AI</span>{% endif %}</td>
+        <td>{{ r.mtime|fmt_time }}</td>
+        <td>{{ (r.size / 1024)|round(1) }} KB</td>
+        <td><a href="/reports/file/{{ r.name }}" target="_blank" rel="noopener">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

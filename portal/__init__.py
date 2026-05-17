@@ -1,0 +1,1 @@
+"""Local pentest dashboard."""

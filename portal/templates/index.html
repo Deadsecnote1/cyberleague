@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Cyber League{% endblock %}
+{% block content %}
+{% if deleted_run_id %}
+<div class="alert ok-alert">
+  <strong>Scan deleted</strong> — removed all files for <code>{{ deleted_run_id }}</code>.
+</div>
+{% endif %}
+{% if delete_error %}
+<div class="alert blocked-alert">
+  <strong>Could not delete scan</strong> — {{ delete_error }}
+</div>
+{% endif %}
+
+<div class="hero">
+  <div class="page-header">
+    <h1>Command center</h1>
+    <p class="lead">Bug bounty pipeline powered by n8n. Launch scans, track findings, and export reports from one place.</p>
+  </div>
+  <div class="hero-actions">
+    <a href="/scan" class="btn btn-primary">New scan</a>
+    <a href="/executions" class="btn btn-ghost">Engine runs</a>
+  </div>
+</div>
+
+<section class="stats">
+  <div class="stat-card">
+    <span class="stat-value">{{ stats.run_count }}</span>
+    <span class="stat-label">Scan runs</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ stats.domain_count }}</span>
+    <span class="stat-label">Domains</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ stats.total_findings }}</span>
+    <span class="stat-label">Findings</span>
+  </div>
+  <div class="stat-card {% if stats.blocked_count %}warn-card{% endif %}">
+    <span class="stat-value">{{ stats.blocked_count }}</span>
+    <span class="stat-label">Blocked</span>
+  </div>
+</section>
+
+{% if stats.domains %}
+<section>
+  <h2>Targets seen</h2>
+  <p class="tag-list">{% for d in stats.domains %}<span class="tag">{{ d }}</span>{% endfor %}</p>
+</section>
+{% endif %}
+
+<section>
+  <h2>Scan runs</h2>
+  {% if not runs %}
+  <p class="muted">No scans yet. Start one from <a href="/scan">New scan</a> to populate your workspace.</p>
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>When</th>
+          <th>Findings</th>
+          <th>Severity</th>
+          <th>Hosts</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td><strong>{{ r.domain }}</strong></td>
+          <td>{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else r.stamp }}</td>
+          <td class="num-cell">{{ r.total }}</td>
+          <td>
+            <div class="cell-badges">
+            {% if r.by_severity.high %}<span class="badge high">{{ r.by_severity.high }} high</span>{% endif %}
+            {% if r.by_severity.medium %}<span class="badge medium">{{ r.by_severity.medium }} med</span>{% endif %}
+            {% if r.by_severity.low %}<span class="badge low">{{ r.by_severity.low }} low</span>{% endif %}
+            </div>
+          </td>
+          <td class="num-cell">{{ r.hosts_scanned }}</td>
+          <td>
+            {% if r.blocked %}
+            <span class="badge blocked">Blocked</span>
+            {% else %}
+            <span class="badge ok">OK</span>
+            {% endif %}
+          </td>
+          <td class="row-actions">
+            <a href="/runs/{{ r.run_id }}">View</a>
+            <form method="post" action="/runs/{{ r.run_id }}/delete" class="inline-delete-form"
+                  onsubmit="return confirm('Delete {{ r.domain }} ({{ r.run_id }}) and all related files?');">
+              <input type="hidden" name="confirm" value="{{ r.run_id }}">
+              <button type="submit" class="btn-link danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+{% if reports %}
+<section>
+  <h2>Recent reports</h2>
+  <ul class="link-list">
+    {% for rep in reports[:8] %}
+    <li>
+      <a href="/reports/file/{{ rep.name }}">{{ rep.name }}</a>
+      <span class="muted">{{ rep.mtime|fmt_time }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted" style="margin-top:1rem"><a href="/reports">All reports →</a></p>
+</section>
+{% endif %}
+{% endblock %}

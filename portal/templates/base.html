@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cyber League{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=5">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Cyber League home">
+      <svg class="brand-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="36" height="36" rx="10" fill="url(#cl-grad)"/>
+        <path d="M18 8L26 12V20C26 25 22 28 18 30C14 28 10 25 10 20V12L18 8Z" stroke="#06080d" stroke-width="1.5" fill="rgba(6,8,13,0.35)"/>
+        <path d="M18 13V23M14 17H22" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="cl-grad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#22d3ee"/>
+            <stop offset="1" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="brand-text">
+        <span class="league">Cyber</span>
+        <span>League</span>
+      </span>
+    </a>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/scan" class="nav-cta">New scan</a>
+      <a href="/executions">Runs</a>
+      <a href="/reports">Reports</a>
+    </nav>
+    <span class="local-badge">Local · 127.0.0.1</span>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <strong>Cyber League</strong> · Authorized testing only · <code>scans/</code> & <code>reports/</code> on this host
+  </footer>
+</body>
+</html>

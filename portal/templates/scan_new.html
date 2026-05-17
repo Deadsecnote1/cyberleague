@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}New scan — Cyber League{% endblock %}
+{% block content %}
+<a href="/" class="back-link">← Dashboard</a>
+
+<div class="page-header">
+  <h1>Launch scan</h1>
+  <p class="lead">Triggers the <strong>Cyber League</strong> n8n pipeline. Pick a preset — longer scans mean more hosts and heavier tools.</p>
+</div>
+
+{% if not n8n_ok %}
+<div class="alert blocked-alert">
+  <strong>Engine offline</strong> — n8n is not reachable at {{ n8n.base_url }}. Run <code>./cyberleague.sh</code> and refresh.
+</div>
+{% else %}
+<p class="engine-status"><span class="dot"></span> n8n connected · {{ n8n.base_url }}</p>
+{% endif %}
+
+{% if result %}
+<div class="alert {% if result.ok %}ok-alert{% else %}blocked-alert{% endif %}">
+  {% if result.ok %}
+  <p><strong>Scan started</strong> via {{ result.method }}</p>
+  <p class="muted">Track progress on <a href="/executions">Runs</a>. Typical time depends on preset (~5 min quick, ~1 hr deep).</p>
+  {% else %}
+  <p><strong>Could not start scan</strong></p>
+  <p>{{ result.message or result.error or 'Unknown error' }}</p>
+  {% if result.hint %}<p>{{ result.hint }}</p>{% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
+<section class="preset-section">
+  <h2>Presets</h2>
+  <div class="preset-grid">
+    {% for key, p in presets.items() %}
+    <a href="/scan?preset={{ key }}" class="preset-card {% if active_preset == key %}active{% endif %}">
+      <span class="preset-name">{{ p.label }}</span>
+      <span class="preset-eta">{{ p.eta }}</span>
+      <span class="preset-desc">{{ p.description }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<form method="post" action="/scan" class="scan-form" id="scan-form">
+  <input type="hidden" name="preset" id="preset-field" value="{{ form.preset or active_preset or 'quick' }}">
+
+  <label>Target URL <span class="req">*</span>
+    <input type="url" name="target_url" required placeholder="https://example.com" value="{{ form.target_url or '' }}">
+  </label>
+  <label>Program name
+    <input type="text" name="program" placeholder="e.g. myprogram" value="{{ form.program or '' }}">
+  </label>
+
+  <section class="scope-section">
+    <h2>Pentest scope</h2>
+    <p class="field-hint">Only hosts matching scope are scanned. Out-of-scope subdomains are dropped after discovery.</p>
+
+    {% if scope_presets %}
+    <label>Load scope template
+      <select id="scope-preset-select">
+        <option value="">— Custom —</option>
+        {% for sp in scope_presets %}
+        <option value="{{ sp.file }}">{{ sp.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
+
+    <label>Scope mode
+      <select name="scope_mode" id="scope-mode">
+        <option value="apex_only" {% if form.scope_mode == 'apex_only' %}selected{% endif %}>Apex only — single host from target URL</option>
+        <option value="subdomains" {% if form.scope_mode == 'subdomains' or not form.scope_mode %}selected{% endif %}>Root + subdomains — default bug bounty style</option>
+        <option value="custom" {% if form.scope_mode == 'custom' %}selected{% endif %}>Custom list — only hosts listed below</option>
+      </select>
+    </label>
+
+    <label>In-scope hosts <span class="req">*</span>
+      <textarea name="in_scope_hosts" id="in-scope-hosts" rows="4" placeholder="example.com&#10;*.example.com&#10;api.example.com">{{ form.in_scope_hosts or '' }}</textarea>
+      <span class="field-hint">One host or pattern per line. Use <code>*.domain.com</code> for wildcard subdomains.</span>
+    </label>
+
+    <label>Out of scope (optional)
+      <textarea name="out_of_scope_hosts" id="out-of-scope-hosts" rows="2" placeholder="staging.example.com">{{ form.out_of_scope_hosts or '' }}</textarea>
+    </label>
+
+    <label>Scope notes (optional)
+      <textarea name="scope_notes" id="scope-notes" rows="2" placeholder="Program rules, exclusions, testing window…">{{ form.scope_notes or '' }}</textarea>
+    </label>
+  </section>
+
+  <label>Scan profile
+    <select name="profile" id="profile-select">
+      <option value="light" {% if form.profile == 'light' or not form.profile %}selected{% endif %}>Light</option>
+      <option value="deep" {% if form.profile == 'deep' %}selected{% endif %}>Deep</option>
+      <option value="both" {% if form.profile == 'both' %}selected{% endif %}>Both</option>
+    </select>
+    <span class="field-hint" id="profile-hint">Recon and headers · about 5–15 minutes</span>
+  </label>
+
+  <label>Max subdomain hosts
+    <input type="number" name="max_hosts" id="max-hosts" min="1" max="50" value="{{ form.max_hosts or 5 }}">
+    <span class="field-hint">Each host adds ~1–2 min if FFUF/Nuclei per host are enabled.</span>
+  </label>
+
+  <label>Max runtime (minutes, 0 = no limit)
+    <input type="number" name="max_runtime_minutes" id="max-runtime" min="0" max="180" value="{{ form.max_runtime_minutes or 20 }}">
+    <span class="field-hint">Stops the scan script after this many minutes (safety cap).</span>
+  </label>
+
+  <label>Request delay (ms)
+    <input type="number" name="request_delay_ms" min="0" max="10000" value="{{ form.request_delay_ms or 500 }}">
+  </label>
+  <label>Max requests per minute
+    <input type="number" name="requests_per_minute" min="1" max="120" value="{{ form.requests_per_minute or 30 }}">
+  </label>
+
+  <div class="checkbox-row">
+    <label><input type="checkbox" name="sqli_scan" id="sqli-scan" {% if form.sqli_scan != false %}checked{% endif %}> SQL injection checks (nuclei sqli + safe probes)</label>
+    <label><input type="checkbox" name="ffuf_per_host" id="ffuf-per-host" {% if form.ffuf_per_host %}checked{% endif %}> FFUF per host (+~1 min/host)</label>
+    <label><input type="checkbox" name="nuclei_per_host" id="nuclei-per-host" {% if form.nuclei_per_host %}checked{% endif %}> Nuclei per host (+~1 min/host)</label>
+    <label><input type="checkbox" name="scan_all_subdomains" {% if form.scan_all_subdomains != false %}checked{% endif %}> Scan all subdomains</label>
+    <label><input type="checkbox" name="ai_advisor" {% if form.ai_advisor != false %}checked{% endif %}> AI hunt advisor</label>
+  </div>
+
+  <p class="warn">Only scan targets you are authorized to test.</p>
+  <button type="submit" {% if not n8n_ok %}disabled{% endif %}>Start scan</button>
+</form>
+
+<p class="muted" style="margin-top:1.5rem">Engine webhook: <code>POST {{ webhook_url }}</code></p>
+
+<script>
+const PRESETS = {{ presets | tojson }};
+const PROFILE_HINTS = {
+  light: 'Recon and headers · about 5–15 minutes',
+  deep: 'Nmap, nuclei, nikto · adds about 10–20 minutes',
+  both: 'Light then deep · about 45–90+ minutes',
+};
+function updateProfileHint() {
+  const sel = document.getElementById('profile-select');
+  const hint = document.getElementById('profile-hint');
+  if (sel && hint) hint.textContent = PROFILE_HINTS[sel.value] || '';
+}
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('preset-field').value = key;
+  document.getElementById('profile-select').value = p.profile;
+  updateProfileHint();
+  document.getElementById('max-hosts').value = p.max_hosts;
+  document.getElementById('max-runtime').value = p.max_runtime_minutes || 0;
+  document.getElementById('sqli-scan').checked = p.sqli_scan !== false;
+  document.getElementById('ffuf-per-host').checked = !!p.ffuf_per_host;
+  document.getElementById('nuclei-per-host').checked = !!p.nuclei_per_host;
+  document.querySelectorAll('.preset-card').forEach(el => {
+    el.classList.toggle('active', el.dataset.preset === key);
+  });
+}
+document.querySelectorAll('.preset-card').forEach(el => {
+  el.dataset.preset = el.getAttribute('href').split('preset=')[1];
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    applyPreset(el.dataset.preset);
+    history.replaceState(null, '', '/scan?preset=' + el.dataset.preset);
+  });
+});
+document.getElementById('profile-select')?.addEventListener('change', updateProfileHint);
+updateProfileHint();
+
+function domainFromUrl(url) {
+  try {
+    const u = new URL(url.includes('://') ? url : 'https://' + url);
+    return u.hostname.replace(/^www\./, '').toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+function suggestScopeFromTarget() {
+  const url = document.querySelector('input[name="target_url"]')?.value || '';
+  const mode = document.getElementById('scope-mode')?.value;
+  const box = document.getElementById('in-scope-hosts');
+  if (!box || mode === 'custom' || box.dataset.userEdited === '1') return;
+  const d = domainFromUrl(url);
+  if (!d) return;
+  if (mode === 'apex_only') {
+    box.value = d;
+  } else {
+    box.value = d + '\n*.' + d;
+  }
+}
+
+document.querySelector('input[name="target_url"]')?.addEventListener('blur', suggestScopeFromTarget);
+document.getElementById('scope-mode')?.addEventListener('change', () => {
+  const box = document.getElementById('in-scope-hosts');
+  if (box) box.dataset.userEdited = '';
+  suggestScopeFromTarget();
+});
+document.getElementById('in-scope-hosts')?.addEventListener('input', (e) => {
+  e.target.dataset.userEdited = '1';
+});
+
+document.getElementById('scope-preset-select')?.addEventListener('change', async (e) => {
+  const file = e.target.value;
+  if (!file) return;
+  try {
+    const r = await fetch('/api/scope-preset/' + encodeURIComponent(file));
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.program) document.querySelector('input[name="program"]').value = data.program;
+    if (data.mode) document.getElementById('scope-mode').value = data.mode;
+    if (data.in_scope) document.getElementById('in-scope-hosts').value = data.in_scope.join('\n');
+    if (data.out_of_scope) document.getElementById('out-of-scope-hosts').value = data.out_of_scope.join('\n');
+    if (data.notes) document.getElementById('scope-notes').value = data.notes;
+    if (data.root_domain) {
+      const t = document.querySelector('input[name="target_url"]');
+      if (t && !t.value) t.value = 'https://' + data.root_domain;
+    }
+  } catch (err) {}
+});
+suggestScopeFromTarget();
+</script>
+{% endblock %}

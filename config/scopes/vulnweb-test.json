@@ -1,0 +1,8 @@
+{
+  "program": "Acunetix Vulnweb (test sites)",
+  "root_domain": "testphp.vulnweb.com",
+  "mode": "subdomains",
+  "in_scope": ["testphp.vulnweb.com", "*.vulnweb.com"],
+  "out_of_scope": [],
+  "notes": "Deliberately vulnerable Acunetix demo application — for scanner testing only."
+}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ run.domain }} — Cyber League{% endblock %}
+{% block content %}
+<a href="/" class="back-link">← Dashboard</a>
+
+<div class="page-header">
+  <h1>{{ run.domain }}</h1>
+  <p class="lead">Run <code>{{ run_id }}</code> · {{ run.started_at.strftime('%Y-%m-%d %H:%M UTC') if run.started_at else run.stamp }}</p>
+</div>
+
+{% if scope and scope.in_scope %}
+<section class="scope-section scope-readonly">
+  <h2>Pentest scope</h2>
+  <p><strong>Mode:</strong> {{ scope.mode }} · <strong>Root:</strong> <code>{{ scope.root_domain }}</code></p>
+  {% if scope.notes %}<p class="muted">{{ scope.notes }}</p>{% endif %}
+  <p class="tag-list">{% for h in scope.in_scope %}<span class="tag">in: {{ h }}</span>{% endfor %}
+  {% for h in scope.out_of_scope or [] %}<span class="tag" style="opacity:0.7">out: {{ h }}</span>{% endfor %}</p>
+  {% if scope_rejected %}
+  <p class="muted">Excluded {{ scope_rejected|length }} discovered host(s) outside scope.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if run.blocked or guard.blocked %}
+<div class="alert blocked-alert">
+  <h2>IP / rate limit — scan stopped</h2>
+  <p>{{ run.tester_message or guard.tester_message or 'Target may be blocking this scanner IP.' }}</p>
+  {% if recommended_actions %}
+  <ul>{% for a in recommended_actions %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+{% endif %}
+
+<section class="stats compact">
+  <div class="stat-card"><span class="stat-value">{{ vulnerabilities.total or 0 }}</span><span class="stat-label">Findings</span></div>
+  <div class="stat-card"><span class="stat-value">{{ hosts_summary|length if hosts_summary else run.hosts_scanned }}</span><span class="stat-label">Hosts</span></div>
+  {% for sev, n in (vulnerabilities.by_severity or {}).items() %}
+  <div class="stat-card"><span class="stat-value">{{ n }}</span><span class="stat-label">{{ sev }}</span></div>
+  {% endfor %}
+</section>
+
+{% if hosts_summary %}
+<section>
+  <h2>Subdomains / hosts</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Host</th><th>Live</th><th>Status</th><th>Title</th><th>Findings</th></tr></thead>
+    <tbody>
+      {% for h in hosts_summary[:40] %}
+      <tr>
+        <td>{{ h.host }}</td>
+        <td>{{ 'yes' if h.live else 'no' }}</td>
+        <td>{{ h.status_code or '—' }}</td>
+        <td>{{ h.title or '' }}</td>
+        <td>{{ h.findings_count or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{% if by_category %}
+<section>
+  <h2>By category</h2>
+  <table class="narrow">
+    <thead><tr><th>Category</th><th>Count</th></tr></thead>
+    <tbody>
+      {% for cat, n in by_category.items() %}
+      <tr><td>{{ cat }}</td><td>{{ n }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section>
+  <h2>Findings <span class="muted">(showing up to 80)</span></h2>
+  <table>
+    <thead><tr><th>Severity</th><th>Host</th><th>Title</th><th>Source</th><th>Recommendation</th></tr></thead>
+    <tbody>
+      {% for f in items[:80] %}
+      <tr>
+        <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+        <td>{{ f.host }}</td>
+        <td>{{ f.title }}</td>
+        <td>{{ f.source }}</td>
+        <td class="rec">{{ f.recommendation or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if ai_pre_scan or ai_post_scan %}
+<section>
+  <h2>AI advisor</h2>
+  {% if ai_pre_scan %}<h3>Pre-scan</h3><pre class="ai-block">{{ ai_pre_scan[:8000] }}</pre>{% endif %}
+  {% if ai_post_scan %}<h3>Post-scan</h3><pre class="ai-block">{{ ai_post_scan[:12000] }}</pre>{% endif %}
+</section>
+{% endif %}
+
+<section>
+  <h2>Artifacts</h2>
+  <p class="muted">Folder: <code>{{ run.path }}</code></p>
+  <p class="tag-list">{% for a in artifacts %}<span class="tag">{{ a }}</span>{% endfor %}</p>
+  {% if related_reports %}
+  <h3>Related HTML reports</h3>
+  <ul class="link-list">
+    {% for name in related_reports %}
+    <li><a href="/reports/file/{{ name }}">{{ name }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="danger-zone">
+  <h2>Delete scan</h2>
+  <p class="muted">Permanently removes this run’s workdir{% if delete_preview and delete_preview.report_files %} and {{ delete_preview.report_files|length }} related report file(s){% endif %}. Cannot be undone.</p>
+  {% if delete_preview %}
+  <ul class="delete-targets muted">
+    <li><code>{{ delete_preview.scan_dir }}/</code>{% if delete_preview.file_count %} · ~{{ delete_preview.file_count }} files{% endif %}</li>
+    {% for name in delete_preview.report_files %}
+    <li><code>reports/{{ name }}</code></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/runs/{{ run_id }}/delete" class="delete-form"
+        onsubmit="return confirm('Delete all data for {{ run.domain }}?\n\nRun: {{ run_id }}\n\nThis cannot be undone.');">
+    <input type="hidden" name="confirm" value="{{ run_id }}">
+    <button type="submit" class="btn btn-danger">Delete scan data</button>
+  </form>
+</section>
+{% endblock %}
