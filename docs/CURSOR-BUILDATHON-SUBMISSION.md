@@ -7,8 +7,8 @@
 | **Project** | Aivura |
 | **Track** | Best use of n8n (built primarily with Cursor) |
 | **Team** | *[Your team name]* |
-| **Demo URL** | *[Live Telegram bot / n8n + portal demo]* |
-| **Repository** | https://github.com/Kiruthiyan/aivura-agent |
+| **Demo URL** | https://t.me/Aivura_bot |
+| **Repository** | https://github.com/Kiruthiyan/n8n_aivura |
 
 ---
 
@@ -27,11 +27,11 @@ University students juggle assignments, exams, and scattered tools (email, Drive
 | Item | Detail |
 |------|--------|
 | **Track** | Best use of n8n by n8n |
-| **Track integration** | **9 n8n workflows** (1 router + 8 feature sub-workflows), Telegram Trigger, Execute Workflow, Switch routing, HTTP nodes to OpenAI / Notion / Gmail / Telegram File API, Code nodes for auth and PDF handling |
+| **Track integration** | **12 n8n workflows** (1 router + 11 feature sub-workflows), Telegram Trigger, Execute Workflow, Switch routing, HTTP nodes to **Gemini** / Notion / Gmail / Telegram File API, Code nodes for auth, PDF vision, and demo mode |
 | **Cursor integration** | Full repo scaffolded and iterated in Cursor: workflow JSON generator (`scripts/build-aivura-student-bot.mjs`), React Admin Portal, docs, and security patterns |
 | **Team name** | *[Fill in]* |
-| **Demo URL** | *[Fill in — e.g. Telegram @YourBot + screen share of n8n executions]* |
-| **Repository** | https://github.com/Kiruthiyan/aivura-agent |
+| **Demo URL** | https://t.me/Aivura_bot |
+| **Repository** | https://github.com/Kiruthiyan/n8n_aivura |
 
 ---
 
@@ -64,7 +64,7 @@ The **fragmentation of academic workflows across channels**—not lack of AI mod
 
 ### What the Product Does
 
-Aivura is a **Telegram-native student assistant**. A student messages the bot or sends a PDF with a caption. **n8n** receives the webhook, verifies the Telegram Chat ID against a Notion Users database, detects intent (slash command + OpenAI JSON classifier), and **executes exactly one of eight specialized sub-workflows**. Each sub-workflow gathers relevant context (document text, Gmail threads, Notion tasks), calls OpenAI with a feature-specific system prompt, formats a structured Markdown reply, and returns it to Telegram.
+Aivura is a **Telegram-native student assistant** ([@Aivura_bot](https://t.me/Aivura_bot)). A student messages the bot or sends a PDF with a caption. **n8n** receives the webhook, verifies the Telegram Chat ID (Notion or demo allowlist), detects intent (slash command + Gemini JSON classifier), and **executes exactly one of eleven specialized sub-workflows**. Each sub-workflow gathers relevant context (document text via Gemini Vision, Gmail threads, Notion tasks), calls **Gemini 2.0 Flash** with a feature-specific system prompt, formats a structured Markdown reply, and returns it to Telegram.
 
 **Core mechanism:** *Workflow-orchestrated AI*—business logic, auth, routing, and integrations live in n8n; the LLM is a step inside deterministic pipelines, not a black-box chat UI.
 
@@ -79,23 +79,27 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 | **Deadlines digest** | Surface urgent academic items from email + Notion |
 | **Viva prep** | Likely questions + model answers before oral exams |
 | **Lecture summary** | Compress lecture notes/PDFs for revision |
+| **Flashcards** | Revision cards from any topic |
+| **Today plan** | Next few hours study blocks |
+| **Explain simple** | Hard topic in plain language (`/simple`) |
 | **General ask / help** | On-demand tutoring + command discovery |
-| **Admin Portal** | Institution adds students by Chat ID; export to Notion |
-| **Access gate** | Unregistered users denied—safe pilot on campus |
+| **Admin Portal** | Add students, export to Notion, **broadcast** messages |
+| **Access gate** | Unregistered users denied; **demo mode** without Notion |
+| **Gemini Vision PDF** | Real PDF/image text extraction (not placeholder) |
 
 ### Scope
 
 **In scope (this build):**
 - Telegram bot (message + document)
-- 9 n8n workflows with sub-workflow execution
-- Notion-based user registry
-- OpenAI GPT-4o-mini for intent + responses
+- 12 n8n workflow files (router + 11 student sub-workflows)
+- Notion-based user registry (+ demo mode bypass)
+- Google Gemini 2.0 Flash for intent + responses + PDF vision
 - Optional Gmail + Notion student DB for context-rich flows
 - Cursor-built Admin Portal (local/Vercel-ready)
 - Workflow generator for reproducible n8n JSON
 
 **Deliberately out of scope (time):**
-- Full PDF OCR/Vision pipeline (placeholder + caption-based summary; production path documented)
+- Sinhala/Tamil full localization
 - Student self-registration and payments
 - Multi-university tenancy and billing
 - Native mobile app (Telegram is the client)
@@ -113,7 +117,7 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 | M3 | Registered user receives `/help` command list |
 | M4 | PDF upload triggers document-summary workflow |
 | M5 | Slash commands map to correct intent (`/mcq`, `/studyplan`, etc.) |
-| M6 | OpenAI returns four-section Markdown (Summary, Findings, Actions, Draft/Plan) |
+| M6 | Gemini returns four-section Markdown (Summary, Findings, Actions, Draft/Plan) |
 | M7 | Router Switch executes **one** sub-workflow per request |
 | M8 | Admin can add student + Chat ID in portal and export for Notion |
 | M9 | All secrets via `$env.*` in n8n (no keys in JSON) |
@@ -125,7 +129,9 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 | S1 | Natural-language intent detection when no slash command |
 | S2 | Gmail fetch for deadline/study-plan workflows |
 | S3 | Notion student DB query for tasks/deadlines |
-| S4 | Telegram file download for `.txt` and PDF metadata |
+| S4 | Telegram file download + Gemini Vision for PDF/images |
+| S6 | Demo mode (`AIVURA_DEMO_MODE`) for hackathon without Notion |
+| S7 | Admin broadcast via portal or CLI script |
 | S5 | `continueOnFail` + aggregated `api_errors` in context |
 
 ### Could Have / Won't Have (this build)
@@ -146,15 +152,15 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 
 | Interaction | Target |
 |-------------|--------|
-| Text command (no Gmail) | 5–15 s end-to-end (OpenAI-bound) |
+| Text command (no Gmail) | 5–15 s end-to-end (Gemini-bound) |
 | Study plan / deadlines (Gmail + Notion) | 15–30 s |
 | PDF summary | 10–25 s (download + AI) |
-| Concurrent users | n8n queue handles modest campus pilot; scale via n8n workers + OpenAI rate limits |
+| Concurrent users | n8n queue handles modest campus pilot; scale via n8n workers + Gemini rate limits |
 
 ### Reliability & Error Handling
 
 - HTTP nodes use `continueOnFail` + `alwaysOutputData`
-- Code nodes collect `api_errors` and pass to OpenAI for graceful degradation
+- Code nodes collect `api_errors` and pass to Gemini for graceful degradation
 - Denied users get fixed message (no stack traces)
 - Sub-workflow failures still route to Collect Reply with fallback text
 
@@ -172,7 +178,7 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 | n8n | Horizontal workers, separate prod/staging instances |
 | Workflows | Feature isolation—scale hot paths (PDF) independently |
 | Notion | Per-cohort databases; pagination on queries |
-| OpenAI | Tier upgrade, caching for repeated summaries |
+| Gemini | Tier upgrade, caching for repeated summaries |
 
 ---
 
@@ -191,7 +197,7 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
        │              ▼                         ▼                         ▼
        │     ┌────────────────┐        ┌────────────────┐       ┌────────────────┐
        │     │ PDF Summary WF │  ...   │ Study Plan WF  │       │ General Ask WF │
-       │     │ OpenAI + File  │        │ Gmail+Notion+AI│       │ OpenAI only    │
+       │     │ Gemini Vision  │        │ Gmail+Notion+AI│       │ Gemini only    │
        │     └────────┬───────┘        └────────┬───────┘       └────────┬───────┘
        │              │                         │                         │
        └──────────────┴─────────────────────────┴─────────────────────────┘
@@ -208,7 +214,7 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
 | **Orchestration (track)** | **n8n** | Visual + exportable workflows; native Telegram, HTTP, Code, Execute Workflow |
-| **AI** | OpenAI GPT-4o-mini | Fast, cost-effective; JSON mode for intent |
+| **AI** | Google Gemini 2.0 Flash | Fast, cost-effective; JSON mode for intent; vision for PDFs |
 | **Messaging** | Telegram Bot API | Universal on student phones; file upload support |
 | **User registry** | Notion API | Low-friction admin DB; filter by Chat ID |
 | **Tasks / context** | Notion Student DB | Structured deadlines for study flows |
@@ -224,10 +230,10 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 2. **02 – Extract** → `chat_id`, `user_message`, `file_id`, `mime_type`  
 3. **03 – Check Registered** → Notion query `Telegram Chat ID == chat_id`  
 4. **04 – Lookup** → if `Active` ≠ true → **05a – Send Denied** → END  
-5. **06 – Detect Intent** → OpenAI JSON `user_intent`  
+5. **06 – Detect Intent** → Gemini JSON `user_intent`  
 6. **07 – Parse Intent** → command override; PDF → `DOCUMENT_SUMMARY`  
 7. **08 – Switch** → **RUN – 📄 /summary** → Execute Workflow `01-pdf-summary`  
-8. Sub-workflow: download file via Telegram API → build context → OpenAI → format  
+8. Sub-workflow: download file via Telegram API → Gemini Vision (if PDF) → build context → Gemini → format  
 9. **09 – Collect Reply** → **10 – Telegram Reply** (Markdown)  
 10. Student sees four-section summary on phone  
 
@@ -235,8 +241,9 @@ Aivura is a **Telegram-native student assistant**. A student messages the bot or
 
 | Use | Model | Prompting |
 |-----|-------|-----------|
-| Intent classification | gpt-4o-mini, `response_format: json_object` | System: enum of 8 intents; user: message + hasPdf flag |
-| Feature responses | gpt-4o-mini, temperature 0.4 | Per-workflow system prompt + JSON user payload (message, context, errors) |
+| Intent classification | Gemini 2.0 Flash, `responseMimeType: application/json` | System: enum of 11 intents; user: message + hasPdf flag |
+| Feature responses | Gemini 2.0 Flash, temperature 0.4 | Per-workflow system prompt + JSON user payload (message, context, errors) |
+| PDF extraction | Gemini Vision inline_data | Extract text from PDF/images before summary workflow |
 | Output contract | — | Fixed Markdown sections for mobile readability |
 
 ### Known Technical Limitations
@@ -270,7 +277,7 @@ No public student login surface—reduces attack area.
 ### API & Secret Management
 
 - `.env.example` only placeholders; `.gitignore` blocks `.env`  
-- Workflow JSON uses `$env.OPENAI_API_KEY`, `$env.TELEGRAM_BOT_TOKEN`, etc.  
+- Workflow JSON uses `$env.GEMINI_API_KEY`, `$env.TELEGRAM_BOT_TOKEN`, etc.  
 - No secrets in Admin Portal frontend bundle except admin password variable  
 
 ### Input Validation
@@ -285,7 +292,7 @@ No public student login surface—reduces attack area.
 | Gap | Mitigation plan |
 |-----|-----------------|
 | Admin password in client env | Move to serverless auth post-hackathon |
-| No rate limiting | Add n8n throttle + OpenAI project caps |
+| No rate limiting | Add n8n throttle + Gemini API quotas |
 | Telegram bot open to anyone | Notion gate; optional allowlist per cohort |
 | Execution logs may contain PII | Retention policy + hosted n8n access control |
 
@@ -311,7 +318,7 @@ No public student login surface—reduces attack area.
 |------|------|--------|
 | 1 | Admin adds “Kiru” + Chat ID in portal, exports to Notion, sets Active | Notion row created |
 | 2 | Kiru opens Telegram, sends `/help` | Router → general workflow → command list |
-| 3 | Kiru uploads `OS_Chapter3.pdf` + caption “Summarize for exam” | Router → PDF workflow → file download → OpenAI |
+| 3 | Student uploads `OS_Chapter3.pdf` + caption “Summarize for exam” | Router → PDF workflow → Gemini Vision → summary |
 | 4 | — | Four-section Markdown reply in <30s |
 | 5 | Kiru sends `/studyplan exams in 5 days` | Study plan workflow → Gmail + Notion → personalized plan |
 
@@ -323,7 +330,7 @@ No public student login surface—reduces attack area.
 | Inactive user | Same deny path |
 | Message with no text, only PDF | Intent defaults to `DOCUMENT_SUMMARY` |
 | Gmail token missing | Workflow continues; AI notes missing email context |
-| OpenAI timeout | Fallback four-section error template |
+| Gemini timeout / quota | Fallback four-section error template |
 | Unknown slash command | AI intent + fallback to `GENERAL_STUDY` |
 
 ---
@@ -376,7 +383,7 @@ No public student login surface—reduces attack area.
 
 | Horizon | Deliverable |
 |---------|-------------|
-| **Now (hackathon)** | 9 workflows, portal, Notion gate, 8 commands |
+| **Now (hackathon)** | 12 workflows, portal, broadcast, demo mode, 11+ commands, Gemini Vision |
 | **0–3 months** | PDF OCR, auto Notion sync, usage dashboard, Sinhala |
 | **12 months** | Multi-tenant admin, LMS integration (Moodle), institutional billing, compliance pack |
 
@@ -386,8 +393,8 @@ No public student login surface—reduces attack area.
 
 ### Technical Edge (n8n)
 
-- **Not a single chatbot workflow** — production-style **router + 8 Execute Workflow sub-flows**  
-- **Real integrations:** Telegram Trigger, Notion auth query, Gmail API, Telegram File API, OpenAI ×2 stages (intent + answer)  
+- **Not a single chatbot workflow** — production-style **router + 11 Execute Workflow sub-flows**  
+- **Real integrations:** Telegram Trigger, Notion auth (or demo mode), Gmail API, Telegram File API, Gemini ×3 (vision + intent + answer)  
 - **Switch node routing** on classified intent — visible, debuggable execution graph for judges  
 - **Workflow-as-code:** Cursor-generated `build-aivura-student-bot.mjs` regenerates all JSON—shows maintainability beyond drag-and-drop  
 - **Failure-aware orchestration:** parallel fetches, error aggregation, graceful AI fallbacks  

@@ -17,3 +17,5 @@ portal/.env
 portal/tsconfig.tsbuildinfo
 *.tsbuildinfo
 _aivura-agent-compare/
+package-lock.json
+docs/CURSOR-BUILDATHON-SUBMISSION.html

@@ -1,17 +1,13 @@
 # Aivura
 
-**Hackers League** · Cursor Buildathon · **n8n track** · branch **`aivura`** (Project 2)
-
-> **Team repo:** [Deadsecnote1/cyberleague](https://github.com/Deadsecnote1/cyberleague) — **Project 1 (Cyber League)** is on branch [`cyber-league`](https://github.com/Deadsecnote1/cyberleague/tree/cyber-league). See [`BRANCHES.md`](BRANCHES.md).
-
 **AI academic co-pilot for university students on Telegram** — orchestrated with **n8n**, built with **Cursor**.
+
 Students get structured study help (summaries, MCQs, viva prep, deadlines) in one chat. Admins control access by Telegram Chat ID. No student signup, no separate app.
 
 | | |
 |---|---|
 | **Telegram bot** | [@Aivura_bot](https://t.me/Aivura_bot) |
-| **Repository** | [Hackers League `aivura` branch](https://github.com/Deadsecnote1/cyberleague/tree/aivura) · [Kiruthiyan/n8n_aivura](https://github.com/Kiruthiyan/n8n_aivura) |
-| **Submission PDF** | [docs/submissions/Aivura_Cursor_Buildathon_Submission.pdf](docs/submissions/Aivura_Cursor_Buildathon_Submission.pdf) |
+| **Repository** | [github.com/Deadsecnote1/cyberleague](https://github.com/Deadsecnote1/cyberleague) (branch: `aivura`) |
 | **Track** | Cursor Buildathon · Best use of n8n |
 | **Students** | Telegram only |
 | **Admins** | React portal → Notion user registry |
@@ -120,8 +116,8 @@ Every AI reply uses four Markdown sections: **Quick Summary · Important Finding
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/Kiruthiyan/n8n_aivura.git
-cd n8n_aivura
+git clone -b aivura https://github.com/Deadsecnote1/cyberleague.git
+cd cyberleague
 cp .env.example .env
 ```
 
@@ -260,7 +256,8 @@ lifepilot-ai/
 | [docs/QUICK-START.md](docs/QUICK-START.md) | 15-minute setup checklist |
 | [docs/N8N-ENV-SETUP.md](docs/N8N-ENV-SETUP.md) | n8n variables and import order |
 | [docs/demo-script.md](docs/demo-script.md) | 2-minute live demo script |
-| [docs/CURSOR-BUILDATHON-SUBMISSION.md](docs/CURSOR-BUILDATHON-SUBMISSION.md) | Full competition submission |
+| [docs/CURSOR-BUILDATHON-SUBMISSION.md](docs/CURSOR-BUILDATHON-SUBMISSION.md) | Full competition submission (source) |
+| [docs/CURSOR-BUILDATHON-SUBMISSION.pdf](docs/CURSOR-BUILDATHON-SUBMISSION.pdf) | **Submission PDF** (print/submit) |
 | [docs/architecture.md](docs/architecture.md) | System design overview |
 | [docs/security.md](docs/security.md) | Secrets and hardening |
 
