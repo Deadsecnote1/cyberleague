@@ -32,3 +32,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated submission HTML (PDF is committed)
+docs/submissions/*.html

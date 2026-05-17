@@ -17,6 +17,7 @@ Local command center for an **n8n-orchestrated** bug-bounty / web pentest pipeli
 | **Project 2 — Aivura** (Kiruththiyan) | https://github.com/Kiruthiyan/n8n_aivura |
 | Project 2 demo (Telegram) | https://t.me/Aivura_bot |
 | Submission write-up | [docs/CURSOR_BUILDATHON_SUBMISSION.md](docs/CURSOR_BUILDATHON_SUBMISSION.md) |
+| Submission PDF | [docs/submissions/Cyber_League_Cursor_Buildathon_Submission.pdf](docs/submissions/Cyber_League_Cursor_Buildathon_Submission.pdf) |
 | Video script | [docs/DEMO_VIDEO_SCRIPT.md](docs/DEMO_VIDEO_SCRIPT.md) |
 
 ## Architecture (short)

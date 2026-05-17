@@ -1,85 +1,99 @@
-# Cursor Buildathon — Project Submission Document
+# CURSOR BUILDATHON · PROJECT SUBMISSION DOCUMENT
 
-**Project:** Cyber League  
-**Team:** Hackers League  
-**Track:** n8n  
-**Repository:** https://github.com/Deadsecnote1/cyberleague  
-**Demo video:** https://youtu.be/d1xiZMBJ61k  
-**Prepared by:** Thanushiyan Kanthasami (Project 1 — Cyber League) · Kiruththiyan Theiventhirarasa (team lead, Project 2 — [Aivura](https://github.com/Kiruthiyan/n8n_aivura))
+**CURSOR × TECHTALK360** · Confidential — For Authorized Use Only
+
+| Field | Value |
+|-------|--------|
+| **Project** | Cyber League |
+| **Track** | Best use of n8n |
+| **Team** | Hackers League |
+| **Demo URL** | https://youtu.be/d1xiZMBJ61k |
+| **Repository** | https://github.com/Deadsecnote1/cyberleague (branch `cyber-league`) |
+| **Prepared by** | Thanushiyan Kanthasami |
 
 ---
 
-## 01 — Project Overview
+## Section 01 — Project Overview
 
-### Project name & one-line pitch
+### Project Name & One-Line Pitch
 
 **Cyber League** — A local command center that triggers an **n8n-orchestrated** web pentest pipeline with configurable scope, SQL injection checks, rate-limit protection, and optional OpenAI hunt advisor — for **authorized** bug bounty and lab testing.
 
 ### Summary
 
-Security testers often run subdomain enumeration, HTTP probing, template scanners, and manual SQLi checks in disconnected tools. Cyber League unifies these steps behind a single **n8n workflow**: the FastAPI portal collects target URL, scan preset, and pentest scope, then triggers n8n via webhook. n8n executes `bugbounty-scan.sh`, which runs industry tools (subfinder, httpx, ffuf, nuclei, nmap, nikto) plus a dedicated SQLi phase. Results are aggregated into `vulnerabilities.json` and HTML reports; optional AI summarizes priorities before and after the scan. The system is designed for Parrot/Kali-style Linux workstations and refuses to scan targets outside user-defined scope.
+Security testers run subdomain enumeration, HTTP probing, template scanners, and SQLi checks across disconnected terminals and scripts, often without scope discipline or rate awareness. **Cyber League** unifies these steps behind one **n8n workflow**: a FastAPI portal collects target URL, scan preset, and pentest scope, then triggers n8n via webhook. n8n executes `bugbounty-scan.sh`, which runs industry tools (subfinder, httpx, ffuf, nuclei, nmap, nikto) plus a dedicated SQLi phase. Findings aggregate into `vulnerabilities.json` and HTML reports; optional AI summarizes priorities before and after the scan. The system targets Parrot/Kali-style Linux workstations and refuses hosts outside user-defined scope.
 
-### Submission details
+### Submission Details
 
-| Field | Value |
-|-------|--------|
-| Track | **n8n** — workflow is the sole scan engine; portal does not run tools directly |
-| Track integration | Webhooks, form triggers, Code nodes, Execute Command, AI nodes, workflow patch tooling |
-| Team | Hackers League |
-| Demo | https://youtu.be/d1xiZMBJ61k |
-| Repository | https://github.com/Deadsecnote1/cyberleague |
-
----
-
-## 02 — Problem Statement
-
-### The problem
-
-Bug bounty and web pentest recon involves many repetitive steps: discover subdomains, identify live hosts, check security headers, run template scanners, test for SQL injection, and document findings. Testers switch between terminals, scripts, and notes. Without scope discipline, automated subdomain enumeration can probe **out-of-scope** hosts. Without rate awareness, scanners trigger WAF blocks and waste program time.
-
-### Why it matters
-
-- Occurs on **every** web engagement (daily for bounty hunters, weekly for consultancies).
-- Consequence: missed coverage, false positives, program violations, and IP blocks that halt testing.
-- Current workaround: manual shell scripts + Burp + scattered notes — no single orchestrated view, no guardrails.
-
-### Root cause
-
-Tooling is powerful but **not orchestrated** with program rules, guardrails, and a single audit trail. Orchestration platforms (n8n) are rarely wired to real pentest CLIs with scope and safety defaults.
+| Item | Detail |
+|------|--------|
+| **Track** | Best use of n8n |
+| **Track integration** | Webhook + form triggers, Code nodes (parse portal payload), Execute Command (`bugbounty-scan.sh`), AI nodes (pre/post scan), workflow patch tooling (`scripts/patch_*.py`), SQLite-backed n8n executions |
+| **Cursor integration** | Portal, workers, n8n JSON export, patches, ops scripts (`cyberleague.sh`, `shutdown.sh`), and this submission built iteratively in Cursor |
+| **Team name** | Hackers League |
+| **Demo URL** | https://youtu.be/d1xiZMBJ61k |
+| **Repository** | https://github.com/Deadsecnote1/cyberleague |
 
 ---
 
-## 03 — Proposed Solution
+## Section 02 — Problem Statement
 
-### What the product does
+### The Problem
 
-**Cyber League** provides a browser UI to configure and launch scans. Configuration includes target URL, scan intensity preset, pentest scope (in/out lists), and toggles for SQLi and AI. On submit, the portal validates scope and POSTs to n8n. n8n runs a published workflow that executes the worker script, generates reports, and optionally calls OpenAI. The dashboard lists past runs with severity counts and links to HTML reports.
+**Who:** Junior-to-mid bug bounty hunters and web pentest students on Linux who run recon regularly.
 
-### Key features (built & demonstrable)
+**Context:** On every web engagement, testers repeat subdomain discovery, live-host probing, header checks, template scanning, and SQLi triage—switching tools manually. Without scope rules, subdomain enumeration hits **out-of-scope** hosts. Without rate awareness, scanners trigger WAF blocks and waste program time.
+
+**Consequence if unsolved:** Missed coverage, program violations, IP blocks that halt testing, and no single audit trail tying configuration to artifacts.
+
+### Why It Matters
+
+| Dimension | Detail |
+|-----------|--------|
+| **Frequency** | Daily for active bounty hunters; weekly for consultancies and lab courses |
+| **Severity** | Direct impact on program standing, finding quality, and time-to-report |
+| **Current workaround** | Ad-hoc shell scripts, Burp, scattered notes—no orchestration or guardrails |
+| **Why workarounds fail** | Tools are powerful but not wired to program scope, rate limits, and one reproducible pipeline |
+
+### Root Cause
+
+Pentest CLIs are mature, but **orchestration with safety defaults** (scope, guards, structured output) is missing. Visual workflow engines like n8n are rarely connected to real recon toolchains with enforceable boundaries.
+
+---
+
+## Section 03 — Proposed Solution
+
+### What the Product Does
+
+**Cyber League** is a browser-based command center on `127.0.0.1:8765`. The user configures target URL, scan intensity (Quick / Standard / Deep), pentest scope (in/out lists or templates), and toggles for SQLi and AI. On submit, the portal validates scope and POSTs JSON to n8n. n8n runs the published **Bug Bounty Pentest Pipeline**, which executes the worker script, aggregates findings, builds HTML reports, and optionally calls OpenAI. The dashboard lists runs with severity counts, blocked status, and report links.
+
+**Core mechanism:** *Workflow-orchestrated pentest* — the portal is control plane only; **n8n** is the sole scan engine; bash/Python workers perform tool execution.
+
+### Key Features (built & demonstrable)
 
 | Feature | User need addressed |
 |---------|---------------------|
-| n8n webhook + form triggers | Reliable engine integration for the n8n track |
+| n8n webhook + form fallback | Reliable engine integration for the n8n track |
 | Quick / Standard / Deep presets | Time-boxed scans vs deep assessment |
-| Pentest scope (3 modes + templates) | Stay within program boundaries |
-| SQL injection phase | Dedicated sqli templates + safe probes |
-| Rate-limit / IP-block guard | Stop when target blocks scanner |
-| Unified `vulnerabilities.json` + HTML report | Single view of findings |
+| Pentest scope (3 modes + JSON templates) | Stay within program boundaries |
+| SQL injection phase (`scan_sqli.py`) | Surface sqli templates + safe probes early |
+| Rate-limit / IP-block guard | Stop when target blocks the scanner |
+| Unified `vulnerabilities.json` + HTML report | Single structured view of findings |
 | AI pre/post-scan advisor | Prioritization and narrative summary |
-| Delete scan run | GDPR / lab cleanup from UI |
-| `cyberleague.sh` / `shutdown.sh` | One-command ops |
+| Delete scan run (UI + API) | Lab cleanup and artifact removal |
+| `cyberleague.sh` / `shutdown.sh` | One-command start/stop for demo |
 
 ### Scope
 
-**In scope (this build):** Single-target web recon on Linux; n8n-orchestrated pipeline; local portal; file-based artifacts; authorized/lab targets.
+**In scope (this build):** Single-target web recon on Linux; n8n-orchestrated pipeline; local portal; file-based `scans/` and `reports/`; authorized/lab targets only.
 
-**Out of scope (deliberate):** Cloud SaaS hosting; multi-tenant auth; authenticated crawling; full sqlmap exploitation; Windows-native install; CI/CD deployment.
+**Out of scope (deliberate):** Cloud SaaS hosting; multi-tenant auth; authenticated crawling; full sqlmap exploitation; Windows-native install; Docker delivery (GitHub-only for buildathon).
 
 ---
 
-## 04 — Functional Requirements
+## Section 04 — Functional Requirements
 
-### Must have (all demonstrable)
+### Must Have (all demonstrable in demo)
 
 | ID | Requirement |
 |----|-------------|
@@ -91,126 +105,158 @@ Tooling is powerful but **not orchestrated** with program rules, guardrails, and
 | M6 | Pentest scope validated before scan; hosts filtered during scan |
 | M7 | Rate-limit guard can halt scan and record blocked state |
 
-### Should have
+### Should Have
 
 | ID | Requirement |
 |----|-------------|
-| S1 | SQL injection checks (nuclei sqli + probes) |
-| S2 | OpenAI pre/post-scan advisor (graceful without API key) |
-| S3 | Deep profile (nmap, nuclei, nikto) |
-| S4 | Delete run removes `scans/` workdir and related reports |
+| S1 | SQL injection checks (nuclei sqli tags + safe probes) |
+| S2 | OpenAI pre/post-scan advisor (graceful skip without API key) |
+| S3 | Deep profile (nmap, nuclei, nikto per host) |
+| S4 | Delete run removes `scans/` workdir and stamp-matched reports |
 | S5 | n8n Executions visible for audit |
 
-### Could have / Won't have (this build)
+### Could Have / Won't Have (this build)
 
-| Item | Decision |
-|------|----------|
-| Docker Compose | Won't — GitHub-only delivery for buildathon |
-| Public cloud demo URL | Won't — local 127.0.0.1 only |
-| Burp export | Could — future |
-| Multi-target CSV from portal | Partial — n8n CSV path exists; portal focuses single URL |
+| ID | Item | Decision |
+|----|------|----------|
+| C1 | Docker Compose | Won't — GitHub-only delivery |
+| C2 | Public cloud demo URL | Won't — local `127.0.0.1` only |
+| C3 | Burp export | Could — future |
+| C4 | Multi-target CSV from portal | Partial — n8n CSV path exists; portal focuses single URL |
 
 ---
 
-## 05 — Non-Functional Requirements
+## Section 05 — Non-Functional Requirements
 
 ### Performance
 
-- Quick preset: ~5–15 minutes on lab targets (5 hosts, no per-host FFUF/Nuclei).
-- Portal UI responses &lt; 2s for dashboard (local filesystem).
-- n8n webhook returns immediately (`onReceived`); long work runs in execution.
+| Interaction | Target |
+|-------------|--------|
+| Quick preset on lab target | ~5–15 minutes (5 hosts, light profile) |
+| Portal dashboard load | &lt; 2s (local filesystem) |
+| n8n webhook response | Immediate (`onReceived`); long work in execution |
 
-### Reliability & error handling
+### Reliability & Error Handling
 
-- Missing CLI tools logged in `tools_missing`; scan continues.
-- OpenAI failures skip AI nodes without failing workflow.
+- Missing CLI tools logged in `tools_missing`; scan continues where possible.
+- OpenAI failures skip AI nodes without failing the workflow.
 - Webhook 404 → portal falls back to n8n form trigger.
-- Invalid scope → portal error, no scan started.
+- Invalid scope → portal error; no scan started.
 - `.scan_stop` + `emit_final_json` on guard trip or runtime cap.
 
 ### Usability
 
-- Dark-themed portal; presets with ETA hints; scope section with templates.
-- Local-only binding (`127.0.0.1`) reduces accidental exposure.
+- Dark-themed portal; presets with ETA hints; scope section with loadable templates.
+- Local-only binding reduces accidental network exposure.
+- Typography and layout tuned for readable operator UI.
 
 ### Scalability
 
-- Filesystem storage suits single analyst. For team scale: object storage for `scans/`, queue-backed workers, horizontal n8n workers. Current design intentionally simple for hackathon demo.
+- Filesystem storage suits single analyst today.
+- Scale path: object storage for `scans/`, queue-backed workers, horizontal n8n workers, shared scope service.
 
 ---
 
-## 06 — Technical Architecture
+## Section 06 — Technical Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for diagram and stack table.
+### System Overview
 
-### System overview
+Three layers: **Portal** (FastAPI UI), **Engine** (n8n workflow), **Workers** (`bugbounty-scan.sh` + Python). Portal never shells out to scanners; it POSTs to n8n only.
 
-Portal (FastAPI) → n8n webhook → Parse → AI (optional) → Execute Command → `bugbounty-scan.sh` → aggregate → HTML report → AI post (optional).
+```
+Cyber League Portal (:8765)
+        │  webhook JSON + sidecar files
+        ▼
+n8n — Bug Bounty Pentest Pipeline
+        │  Parse → AI (optional) → Execute Command
+        ▼
+bugbounty-scan.sh → subfinder, httpx, ffuf, nuclei, nmap, nikto, scan_sqli.py
+        ▼
+scans/<domain>_<UTC>/  +  reports/*.html
+```
 
-### Technology stack
+See [ARCHITECTURE.md](ARCHITECTURE.md) for Mermaid diagram and stack table.
 
-n8n, FastAPI, uvicorn, Bash, Python 3, subfinder/httpx/ffuf/nuclei/nmap/nikto/curl, OpenAI API, SQLite (n8n internal DB).
+### Technology Stack
 
-### Data flow (core action)
+| Layer | Technology | Rationale |
+|-------|------------|-----------|
+| Orchestration | **n8n** | Visual workflow, webhooks, Execute Command, AI nodes, exportable JSON |
+| Portal | FastAPI, Jinja2, uvicorn | Fast local UI; scope validation before engine |
+| Workers | Bash, Python 3 | Glue for pentest CLIs and aggregation |
+| Scanners | subfinder, httpx, ffuf, nuclei, nmap, nikto, curl | Industry-standard recon stack |
+| AI | OpenAI API (`gpt-4o-mini` default) | Pre/post scan prioritization |
+| Storage | Local filesystem | Simple hackathon/demo deploy on Linux |
 
-1. POST `/scan` with `target_url`, `scan_config`, `scope`.
-2. Sidecar files: `.current_scan_domain`, `.current_scan_env`, `.current_scan_scope.json`.
-3. n8n runs worker; writes `scans/<domain>_<UTC>/`.
-4. `aggregate_vulnerabilities.py` → `vulnerabilities.json`.
-5. Report node writes `reports/bugbounty-report-*.html`.
+### Data Flow (core action: start scan)
 
-### AI integration
+1. User POSTs `/scan` with `target_url`, `scan_config`, `scope`.
+2. Portal writes `.current_scan_domain`, `.current_scan_env`, `.current_scan_scope.json`.
+3. Portal POSTs n8n webhook `portal-scan` (or form fallback).
+4. n8n Parse node reads payload; optional AI pre-scan node runs.
+5. Execute Command invokes `bugbounty-scan.sh` with env profile.
+6. Worker writes `scans/<domain>_<timestamp>/`; `aggregate_vulnerabilities.py` → `vulnerabilities.json`.
+7. n8n report node writes `reports/bugbounty-report-*.html`; optional AI post-scan.
 
-- **Provider:** OpenAI (`gpt-4o-mini` default).
-- **Role:** Pre-scan prioritization notes; post-scan executive summary merged into report.
-- **Prompting:** Via `scripts/ai_pentest_advisor.py` with target + findings bundle.
-- **Failure:** Workflow continues if key missing or API errors.
+### AI Integration
 
-### Known technical limitations
+| Use | Model / method | Role |
+|-----|----------------|------|
+| Pre-scan | OpenAI via `ai_pentest_advisor.py` | Focus areas before tools run |
+| Post-scan | Same | Executive summary merged into report |
+| Failure mode | Graceful skip | Workflow continues if key missing or API errors |
 
-- Linux-only workers; hardcoded paths in some n8n patches (configurable via `ROOT`).
-- n8n workflow must be Active after DB patches.
+### Known Technical Limitations
+
+- Linux-only workers; some n8n patches use configurable `ROOT` paths.
+- Workflow must be **Active** after DB patches (`patch_portal_webhook.py`, etc.).
 - SQLi detection ≠ confirmed exploitation.
-- Single-machine filesystem storage.
+- Single-machine filesystem; no built-in multi-user auth.
 
 ---
 
-## 07 — Security
+## Section 07 — Security
 
-### Authentication & authorisation
+### Authentication & Authorisation
 
-- Portal binds to **127.0.0.1** only — no remote access by default.
-- No login (single-operator local tool). n8n admin access assumed trusted.
+| Actor | Mechanism |
+|-------|-----------|
+| Operator | Portal binds to **127.0.0.1** only; no remote access by default |
+| n8n admin | Assumed trusted local operator; n8n login if exposed |
 
-### Data handling
+No student-style multi-tenant auth—single-operator local security tool.
 
-- Scan artifacts stored locally under `scans/` and `reports/`.
-- No PII collection by application; user-supplied targets only.
+### Data Handling
+
+- Scan artifacts under `scans/` and `reports/` on the host.
+- No application PII collection; user-supplied targets only.
 - Delete run removes workdir and stamp-matched reports.
 
-### API & secret management
+### API & Secret Management
 
-- `OPENAI_API_KEY` in `config/openai.env` (gitignored pattern; example file has placeholder only).
-- Keys not sent to browser; AI runs server-side in n8n/worker context.
-- Portal does not embed secrets in frontend.
+- `OPENAI_API_KEY` in `config/openai.env` (gitignored; example file uses placeholder only).
+- Keys not exposed in portal frontend; AI runs in n8n/worker context.
+- n8n env: `NODES_EXCLUDE='[]'`, `NODE_FUNCTION_ALLOW_BUILTIN` for required Code node builtins.
 
-### Input validation
+### Input Validation
 
 - Path traversal blocked on `run_id` and report filenames.
-- Scope validation on target URL and host lists.
+- Scope validation on target URL and host lists before engine start.
 - n8n Code nodes validate required `target_url`.
 
-### Known gaps
+### Known Vulnerabilities or Gaps
 
-- No TLS on local HTTP (localhost only).
-- n8n default auth if exposed to network — operator must firewall.
-- Automated scanning can be destructive on misconfigured targets — user responsibility.
+| Gap | Mitigation plan |
+|-----|-----------------|
+| No TLS on local HTTP | Acceptable for localhost; do not expose portal to LAN without reverse proxy + TLS |
+| n8n default auth if network-exposed | Firewall; bind locally |
+| Automated scanning risk on wrong target | User responsibility; scope + authorized-use warnings in UI/docs |
 
 ---
 
-## 08 — User Stories & Use Cases
+## Section 08 — User Stories & Use Cases
 
-### Core user stories
+### Core User Stories
 
 1. As a **tester**, I want to start a quick recon scan from a browser, so that I get subdomains and headers in one step.
 2. As a **tester**, I want n8n to orchestrate tools, so that I can audit and extend the pipeline visually.
@@ -221,124 +267,112 @@ n8n, FastAPI, uvicorn, Bash, Python 3, subfinder/httpx/ffuf/nuclei/nmap/nikto/cu
 7. As a **tester**, I want AI to summarize findings, so that I know what to validate first.
 8. As a **tester**, I want to delete old lab runs, so that my disk stays clean.
 
-### Primary use case walkthrough
+### Primary Use Case Walkthrough
 
-1. User opens Cyber League → **New scan**.
-2. Enters `http://testphp.vulnweb.com`, loads vulnweb scope template, selects **Quick**, enables SQLi + AI.
-3. Portal validates scope → POST webhook → n8n execution starts.
-4. Worker creates `scans/testphp.vulnweb.com_<timestamp>/`, runs light + SQLi, writes `vulnerabilities.json`.
-5. n8n builds HTML report; AI writes post-scan markdown.
-6. User opens **Dashboard** → **View** run → reads findings and downloads report.
+| Step | User action | System action |
+|------|-------------|---------------|
+| 1 | Opens **New scan**, enters `http://testphp.vulnweb.com`, loads vulnweb scope template, selects **Quick**, enables SQLi + AI | Portal validates scope |
+| 2 | Clicks start | POST webhook → n8n execution starts; sidecar files written |
+| 3 | Waits | Worker creates `scans/testphp.vulnweb.com_<timestamp>/`, runs light + SQLi |
+| 4 | Opens **Dashboard** → **View** | Reads `vulnerabilities.json`, severity badges, HTML report link |
+| 5 | Optional | Reads AI pre/post markdown in `reports/` |
 
-### Edge cases
+### Edge Cases
 
-- Target outside scope → portal error, no execution.
-- n8n down → portal shows engine offline.
-- Tool missing → recorded in scan JSON, scan continues.
-- Block detected → `.scan_stop`, partial results retained.
+| Case | Behaviour |
+|------|-----------|
+| Target outside scope | Portal error; no n8n execution |
+| n8n down / workflow inactive | Portal shows engine offline or webhook 404 |
+| CLI tool missing | Recorded in scan JSON; scan continues |
+| Rate limit / block detected | `.scan_stop`; partial results retained; **BLOCKED** on dashboard |
 
 ---
 
-## 09 — Target Users & Market
+## Section 09 — Target Users & Market
 
-### Primary user
+### Primary User
 
-Junior-to-mid **bug bounty hunters** and **pentest lab students** on Linux (Parrot/Kali) who want orchestrated recon without building custom scripts.
+Junior-to-mid **bug bounty hunters** and **pentest lab students** on Linux (Parrot/Kali) who want orchestrated recon with scope and guardrails—not another disconnected script folder.
 
-### Market opportunity
+### Market Opportunity
 
-Bug bounty platforms continue to grow; automation with guardrails is underserved for solo hunters. Initial segment: thousands of active researchers using Linux toolchains.
+Bug bounty and ASM markets continue to grow; solo hunters need local-first automation with program-safe defaults. Initial wedge: thousands of Linux-based researchers and university cyber labs.
 
-### Competitive landscape
+### Competitive Landscape
 
-| Alternative | Weakness |
-|-------------|----------|
-| Manual script collections | No visual orchestration, weak scope model |
-| Commercial ASM platforms | Costly, not local-first, overkill for labs |
+| Alternative | Weakness vs. Cyber League |
+|-------------|---------------------------|
+| Manual script collections | No visual orchestration; weak scope model |
+| Commercial ASM platforms | Costly; not local-first; overkill for labs |
 | Raw n8n without pentest pack | No scope/SQLi/guard integration out of the box |
 
 ---
 
-## 10 — Business Model
+## Section 10 — Business Model
 
-### Revenue model
+### Revenue Model
 
-**Freemium SaaS** (future): free local runner; paid cloud for team dashboards, report branding, and compliance exports.
+**Freemium / open core (future):** free local runner; paid cloud for team dashboards, report branding, and compliance exports.
 
-### Pricing hypothesis
+### Pricing Hypothesis
 
 $19–49/month per researcher for cloud sync and team features; local runner remains free/open core.
 
-### Go-to-market
+### Go-to-Market
 
-- Publish workflow template on n8n community
-- YouTube/Twitch lab demos on vulnweb targets
-- University cybersecurity clubs
+1. Publish n8n workflow template to n8n community.
+2. YouTube lab demos on authorized vulnweb targets (see demo video).
+3. University cybersecurity clubs and CTF teams on Parrot/Kali.
 
 ### Roadmap
 
 | Horizon | Deliverable |
 |---------|-------------|
-| Now | Cyber League + n8n workflow + docs (buildathon) |
+| Now (hackathon) | Cyber League + n8n workflow + submission doc + demo video |
 | 0–3 months | Docker Compose, path-agnostic config, Burp export |
 | 12 months | Team cloud, program CSV import, authenticated scans |
 
 ---
 
-## 11 — Why This Project Leads the Track
+## Section 11 — Why This Project Leads the Track
 
-### Technical edge (n8n)
+### Technical Edge
 
-- **Deep n8n usage:** webhook ingress, Code parsing, Execute Command worker, AI nodes, form fallback — not a superficial integration.
-- Workflow patch suite (`patch_*.py`) shows repeatable deploy story.
-- Portal ↔ n8n contract via JSON payload + sidecar files solves real v2 pain points (`fs`, Execute Command disabled by default).
+- **Deep n8n usage:** webhook ingress, Code parsing, Execute Command worker, AI nodes, form fallback—not a thin wrapper.
+- Workflow patch suite (`patch_*.py`) shows repeatable deploy after import.
+- Portal ↔ n8n contract (JSON + sidecar files) addresses real n8n v2 constraints (`fs`, disabled Execute Command by default).
+- Differentiators: **scope enforcement**, **SQLi phase**, **rate-limit guard** in one pipeline.
 
-### Problem–solution fit
+### Problem–Solution Fit
 
-Directly addresses fragmented recon + scope violations with one visual pipeline testers can extend without recompiling the portal.
+Directly targets fragmented recon and out-of-scope probing with one visual pipeline testers can extend without recompiling the portal.
 
-### Execution quality
+### Execution Quality
 
 - End-to-end demo: portal → n8n → artifacts → report → AI.
-- Presets match real time budgets; scope + SQLi + guard are differentiators for a 24h-style build.
-- Polished local UI; operator scripts `cyberleague.sh` / `shutdown.sh`.
+- Presets match real time budgets; polished local UI; `cyberleague.sh` / `shutdown.sh` for operators.
+- Recorded demo: https://youtu.be/d1xiZMBJ61k
 
-### Real-world potential
+### Real-World Potential
 
-Extends beyond hackathon: hunters can fork workflow, add nuclei templates, plug Jira export. n8n marketplace distribution fits track sponsor goals.
-
----
-
-## 12 — Team & Roles
-
-**Hackers League** submitted two n8n-track projects for Cursor Buildathon:
-
-| | Project 1 | Project 2 |
-|---|-----------|-----------|
-| **Name** | **Cyber League** | **Aivura** |
-| **Pitch** | Local command center for an n8n-orchestrated bug-bounty / web pentest pipeline | AI academic co-pilot on Telegram — lecture PDFs, deadlines, and study questions via orchestrated n8n workflows |
-| **Builder / lead** | Thanushiyan Kanthasami | Kiruththiyan Theiventhirarasa (team lead) |
-| **Repository** | https://github.com/Deadsecnote1/cyberleague | https://github.com/Kiruthiyan/n8n_aivura |
-| **Demo** | https://youtu.be/d1xiZMBJ61k | https://t.me/Aivura_bot (`@Aivura_bot`) |
-| **This document** | Sections 01–11 below | Summary from Kiruththiyan’s submission PDF |
-
-### Team members
-
-| Name | Role | Contribution |
-|------|------|--------------|
-| **Thanushiyan Kanthasami** | Builder — Project 1 (Cyber League) | Portal (FastAPI), n8n webhook integration, `bugbounty-scan.sh`, scope + SQLi modules, rate-limit guard, AI advisor scripts, workflow patches, ops scripts, documentation |
-| **Kiruththiyan Theiventhirarasa** | Team lead — Project 2 (Aivura) | Router + 11 feature n8n sub-workflows, Telegram bot, Gemini 2.0 Flash (intent + vision), Notion user registry, Gmail/Notion context, workflow JSON generator, React admin portal (Cursor/Vite), security patterns, submission doc |
-
-### Project 2 — Aivura (summary)
-
-University students juggle assignments, email, Drive, and study tools across disconnected apps. **Aivura** gives one Telegram interface: students message `@Aivura_bot`, upload PDFs, or use slash commands; n8n verifies Chat ID (Notion or demo allowlist), classifies intent, routes to one of 11 feature sub-workflows, and returns structured four-section Markdown replies (Summary, Findings, Actions, Draft/Plan).
-
-**Highlights:** 12 n8n workflows (1 router + 11 features — PDF summary, MCQ, study plan, deadlines, viva prep, flashcards, etc.); admin portal for cohort access; demo mode for hackathon testing; secrets via n8n environment variables only.
-
-### Why this team
-
-Thanushiyan connects n8n to real pentest CLIs and local scope controls for **authorized** security testing. Kiruththiyan delivers production-style n8n routing (Switch + Execute Workflow), multi-API orchestration, and a student-facing channel students already use. Together, Hackers League shows two strong **Best Use of n8n** patterns: security pipeline automation and academic workflow automation.
+Hunters can fork the workflow, add nuclei templates, plug Jira export. Fits n8n marketplace and local lab workflows beyond the hackathon.
 
 ---
 
-*Cyber League · Hackers League · Cursor Buildathon · n8n track*
+## Section 12 — Team & Roles
+
+### Team Members
+
+| Name | Role | Built | Background |
+|------|------|-------|------------|
+| **Thanushiyan Kanthasami** | Builder — Cyber League | Portal (FastAPI), n8n webhook integration, `bugbounty-scan.sh`, scope + SQLi modules, rate-limit guard, AI advisor scripts, workflow patches, ops scripts, documentation | Linux bug-bounty tooling and full-stack integration on Parrot/Kali-style workstations |
+
+*Hackers League also submitted **Aivura** (Project 2) on branch `aivura` — Kiruththiyan Theiventhirarasa, team lead; demo https://t.me/Aivura_bot.*
+
+### Why This Team
+
+Thanushiyan combines hands-on bounty recon experience with n8n orchestration skills—the right mix to wire a **real** pentest toolchain into the track sponsor’s workflow engine with scope and safety defaults, not a demo-only chatbot.
+
+---
+
+*Cyber League · Hackers League · Cursor Buildathon · Cursor × TechTalk360 · Confidential*
