@@ -1,0 +1,263 @@
+{
+  "name": "Aivura Student – Generate MCQ",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "t",
+      "name": "00 – Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "number"
+            },
+            {
+              "id": "username",
+              "name": "username",
+              "value": "={{ $json.username || \"Student\" }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.user_message }}",
+              "type": "string"
+            },
+            {
+              "id": "has_document",
+              "name": "has_document",
+              "value": "={{ $json.has_document || false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "file_id",
+              "name": "file_id",
+              "value": "={{ $json.file_id || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "file_name",
+              "name": "file_name",
+              "value": "={{ $json.file_name || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "mime_type",
+              "name": "mime_type",
+              "value": "={{ $json.mime_type || \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "in",
+      "name": "01 – Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst apiErrors = [...(item.api_errors || [])];\nconst ctx = { intent: 'GENERATE_MCQ' };\n\n\n\nreturn [{ json: { ...item, collected_context: ctx, api_errors: apiErrors } }];"
+      },
+      "id": "ctx",
+      "name": "03 – Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, gemini_request: {\n  systemInstruction: { parts: [{ text: \"Create 5-10 MCQs with 4 options each. Put correct answers in section 4. Always use: ## 1. Quick Summary ## 2. Important Findings ## 3. Suggested Next Actions ## 4. Draft / Plan / Checklist\" }] },\n  contents: [{ role: 'user', parts: [{ text: JSON.stringify({ message: j.user_message, context: j.collected_context, errors: j.api_errors }) }] }],\n  generationConfig: { temperature: 0.4 },\n} } }];"
+      },
+      "id": "pr",
+      "name": "04 – AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.gemini_request) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ai",
+      "name": "05 – Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        300
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('04 – AI Prompt').first().json;\nconst r = $input.first().json;\nlet reply = r?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '## 1. Quick Summary\\nService error.\\n\\n## 2. Important Findings\\n' + (r?.error?.message || 'Try again') + '\\n\\n## 3. Suggested Next Actions\\n- Retry\\n\\n## 4. Draft / Plan / Checklist\\n- [ ]';\nif (reply.length > 3900) reply = reply.slice(0, 3900) + '…';\nreturn [{ json: { chat_id: m.chat_id, reply_text: reply, intent: 'GENERATE_MCQ' } }];"
+      },
+      "id": "fmt",
+      "name": "06 – Format Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "reply_text",
+              "name": "reply_text",
+              "value": "={{ $json.reply_text }}",
+              "type": "string"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "number"
+            },
+            {
+              "id": "intent",
+              "name": "intent",
+              "value": "=GENERATE_MCQ",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "ret",
+      "name": "07 – Return",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "00 – Trigger": {
+      "main": [
+        [
+          {
+            "node": "01 – Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01 – Input": {
+      "main": [
+        [
+          {
+            "node": "03 – Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 – Build Context": {
+      "main": [
+        [
+          {
+            "node": "04 – AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 – AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "05 – Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 – Gemini": {
+      "main": [
+        [
+          {
+            "node": "06 – Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 – Format Reply": {
+      "main": [
+        [
+          {
+            "node": "07 – Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "aivura"
+    },
+    {
+      "name": "02-generate-mcq"
+    }
+  ],
+  "meta": {
+    "instanceId": "aivura-02-generate-mcq"
+  }
+}

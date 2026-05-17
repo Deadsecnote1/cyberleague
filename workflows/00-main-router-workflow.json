@@ -1,0 +1,1213 @@
+{
+  "name": "Aivura – Telegram Bot Router",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "r1",
+      "name": "01 – Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "aivura-bot"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "number"
+            },
+            {
+              "id": "username",
+              "name": "username",
+              "value": "={{ $json.message.from.username || $json.message.from.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.message.text || $json.message.caption || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "has_document",
+              "name": "has_document",
+              "value": "={{ !!$json.message.document }}",
+              "type": "boolean"
+            },
+            {
+              "id": "file_id",
+              "name": "file_id",
+              "value": "={{ $json.message.document?.file_id || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "file_name",
+              "name": "file_name",
+              "value": "={{ $json.message.document?.file_name || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "mime_type",
+              "name": "mime_type",
+              "value": "={{ $json.message.document?.mime_type || \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "r2",
+      "name": "02 – Extract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $env.NOTION_USERS_DATABASE_ID }}/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.NOTION_API_KEY }}"
+            },
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ page_size: 1, filter: { property: \"Telegram Chat ID\", rich_text: { equals: String($json.chat_id) } } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "r3",
+      "name": "03 – Check Registered",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        400
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('02 – Extract').first().json;\nconst notion = $input.first().json;\nlet access_denied = true;\nlet deny_reason = 'Not registered. Admin must add your Telegram Chat ID in Aivura Portal.';\nconst demo = String($env.AIVURA_DEMO_MODE || '').toLowerCase() === 'true';\nconst allowList = String($env.DEMO_ALLOWED_CHAT_IDS || '').split(',').map(s => s.trim()).filter(Boolean);\nconst cid = String(base.chat_id);\nif (demo) {\n  if (!allowList.length || allowList.includes(cid)) access_denied = false;\n  else deny_reason = 'Demo mode: Chat ID not in DEMO_ALLOWED_CHAT_IDS.';\n} else if (notion?.results?.[0]?.properties?.Active?.checkbox === true) {\n  access_denied = false;\n}\nreturn [{ json: { ...base, access_denied, deny_reason, demo_mode: demo } }];"
+      },
+      "id": "r4",
+      "name": "04 – Lookup Student",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.access_denied }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "r5",
+      "name": "05 – Denied?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $json.chat_id }},\n  \"text\": {{ JSON.stringify($json.deny_reason + \"\\n\\n/help for commands\") }}\n}"
+      },
+      "id": "r5a",
+      "name": "05a – Send Denied",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"systemInstruction\": { \"parts\": [{ \"text\": \"Return JSON only with key user_intent. One of: DOCUMENT_SUMMARY, GENERATE_MCQ, SUBMISSION_ANSWER, STUDY_PLAN, ASSIGNMENT_DEADLINES, VIVA_PREP, LECTURE_SUMMARY, FLASHCARDS, TODAY_PLAN, EXPLAIN_SIMPLE, GENERAL_STUDY\" }] },\n  \"contents\": [{ \"role\": \"user\", \"parts\": [{ \"text\": \"msg: {{ $json.user_message }}\\nhasPdf: {{ $json.has_document }}\" }] }],\n  \"generationConfig\": { \"temperature\": 0, \"responseMimeType\": \"application/json\" }\n}",
+        "options": {
+          "timeout": 25000
+        }
+      },
+      "id": "r6",
+      "name": "06 – Detect Intent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        520
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('04 – Lookup Student').first().json;\nlet intent = 'GENERAL_STUDY';\ntry {\n  const raw = $('06 – Detect Intent').first().json?.candidates?.[0]?.content?.parts?.[0]?.text;\n  const c = raw;\n  if (c) intent = JSON.parse(c).user_intent || intent;\n} catch (e) {}\nconst msg = (p.user_message || '').toLowerCase().trim();\nconst cmds = { '/summary':'DOCUMENT_SUMMARY','/mcq':'GENERATE_MCQ','/submit':'SUBMISSION_ANSWER','/studyplan':'STUDY_PLAN','/deadlines':'ASSIGNMENT_DEADLINES','/viva':'VIVA_PREP','/lecture':'LECTURE_SUMMARY','/flashcards':'FLASHCARDS','/today':'TODAY_PLAN','/simple':'EXPLAIN_SIMPLE','/ask':'GENERAL_STUDY','/help':'GENERAL_STUDY','/start':'GENERAL_STUDY' };\nfor (const [k,v] of Object.entries(cmds)) { if (msg === k || msg.startsWith(k + ' ')) { intent = v; break; } }\nif (p.has_document && intent === 'GENERAL_STUDY') intent = 'DOCUMENT_SUMMARY';\nreturn [{ json: { ...p, intent } }];"
+      },
+      "id": "r7",
+      "name": "07 – Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "DOCUMENT_SUMMARY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DOCUMENT_SUMMARY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "GENERATE_MCQ",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GENERATE_MCQ"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "SUBMISSION_ANSWER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SUBMISSION_ANSWER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "STUDY_PLAN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "STUDY_PLAN"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "ASSIGNMENT_DEADLINES",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ASSIGNMENT_DEADLINES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "VIVA_PREP",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "VIVA_PREP"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "LECTURE_SUMMARY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LECTURE_SUMMARY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "FLASHCARDS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "FLASHCARDS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "TODAY_PLAN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TODAY_PLAN"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "EXPLAIN_SIMPLE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "EXPLAIN_SIMPLE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "GENERAL_STUDY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GENERAL_STUDY"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "GENERAL"
+        }
+      },
+      "id": "r8",
+      "name": "08 – Route Workflow",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1540,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – PDF Summary"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-01-pdf-summary",
+      "name": "RUN – 📄 /summary",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        60
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Generate MCQ"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-02-generate-mcq",
+      "name": "RUN – ❓ /mcq",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        130
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Submission Answer"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-03-submission-answer",
+      "name": "RUN – ✍️ /submit",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        200
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Study Plan"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-04-study-plan",
+      "name": "RUN – 📅 /studyplan",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        270
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Deadlines"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-05-deadlines",
+      "name": "RUN – ⏰ /deadlines",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        340
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Viva Prep"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-06-viva-prep",
+      "name": "RUN – 🎤 /viva",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        410
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Lecture Summary"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-07-lecture-summary",
+      "name": "RUN – 📚 /lecture",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        480
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Flashcards"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-09-flashcards",
+      "name": "RUN – 🃏 /flashcards",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        550
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Today Plan"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-10-today",
+      "name": "RUN – 📌 /today",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        620
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – Explain Simple"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-11-simple",
+      "name": "RUN – 💡 /simple",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        690
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Aivura Student – General Ask"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "user_message": "={{ $json.user_message }}",
+            "has_document": "={{ $json.has_document }}",
+            "file_id": "={{ $json.file_id }}",
+            "file_name": "={{ $json.file_name }}",
+            "mime_type": "={{ $json.mime_type }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ex-08-general-ask",
+      "name": "RUN – 💬 /ask",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        760
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "let reply = 'Error.'; let chat_id = $('07 – Parse Intent').first().json.chat_id;\nfor (const i of $input.all()) { if (i.json?.reply_text) { reply = i.json.reply_text; break; } }\nreturn [{ json: { chat_id, reply_text: reply } }];"
+      },
+      "id": "r9",
+      "name": "09 – Collect Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $json.chat_id }},\n  \"text\": {{ JSON.stringify($json.reply_text) }},\n  \"parse_mode\": \"Markdown\"\n}"
+      },
+      "id": "r10",
+      "name": "10 – Telegram Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        520
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "01 – Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "02 – Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 – Extract": {
+      "main": [
+        [
+          {
+            "node": "03 – Check Registered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 – Check Registered": {
+      "main": [
+        [
+          {
+            "node": "04 – Lookup Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 – Lookup Student": {
+      "main": [
+        [
+          {
+            "node": "05 – Denied?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 – Denied?": {
+      "main": [
+        [
+          {
+            "node": "05a – Send Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "06 – Detect Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 – Detect Intent": {
+      "main": [
+        [
+          {
+            "node": "07 – Parse Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 – Parse Intent": {
+      "main": [
+        [
+          {
+            "node": "08 – Route Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 – Route Workflow": {
+      "main": [
+        [
+          {
+            "node": "RUN – 📄 /summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – ❓ /mcq",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – ✍️ /submit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 📅 /studyplan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – ⏰ /deadlines",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 🎤 /viva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 📚 /lecture",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 🃏 /flashcards",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 📌 /today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 💡 /simple",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RUN – 💬 /ask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 – Collect Reply": {
+      "main": [
+        [
+          {
+            "node": "10 – Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 📄 /summary": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – ❓ /mcq": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – ✍️ /submit": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 📅 /studyplan": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – ⏰ /deadlines": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 🎤 /viva": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 📚 /lecture": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 🃏 /flashcards": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 📌 /today": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 💡 /simple": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RUN – 💬 /ask": {
+      "main": [
+        [
+          {
+            "node": "09 – Collect Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "aivura"
+    }
+  ],
+  "meta": {
+    "instanceId": "aivura-router-v4"
+  }
+}

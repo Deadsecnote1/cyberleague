@@ -1,0 +1,287 @@
+{
+  "name": "Aivura Student – Lecture Summary",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "t",
+      "name": "00 – Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "number"
+            },
+            {
+              "id": "username",
+              "name": "username",
+              "value": "={{ $json.username || \"Student\" }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.user_message }}",
+              "type": "string"
+            },
+            {
+              "id": "has_document",
+              "name": "has_document",
+              "value": "={{ $json.has_document || false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "file_id",
+              "name": "file_id",
+              "value": "={{ $json.file_id || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "file_name",
+              "name": "file_name",
+              "value": "={{ $json.file_name || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "mime_type",
+              "name": "mime_type",
+              "value": "={{ $json.mime_type || \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "in",
+      "name": "01 – Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('01 – Input').first().json;\nconst apiErrors = [];\nlet document_content = '';\nconst geminiKey = $env.GEMINI_API_KEY || '';\nconst GEMINI_MODEL = 'gemini-2.0-flash';\nif (base.has_document && base.file_id) {\n  const token = $env.TELEGRAM_BOT_TOKEN;\n  try {\n    const info = await this.helpers.httpRequest({ method: 'GET', url: 'https://api.telegram.org/bot' + token + '/getFile', qs: { file_id: base.file_id }, json: true });\n    const fp = info?.result?.file_path;\n    if (fp) {\n      const bin = await this.helpers.httpRequest({ method: 'GET', url: 'https://api.telegram.org/file/bot' + token + '/' + fp, encoding: 'arraybuffer', returnFullResponse: true });\n      const buf = Buffer.from(bin.body || bin);\n      const mime = base.mime_type || 'application/octet-stream';\n      const fname = base.file_name || 'document';\n      if (mime.includes('text') || fname.endsWith('.txt')) {\n        document_content = buf.toString('utf8').slice(0, 12000);\n      } else if (geminiKey && buf.length > 0 && buf.length < 4200000) {\n        const b64 = buf.toString('base64');\n        let mimeType = 'application/pdf';\n        if (mime.includes('pdf')) mimeType = 'application/pdf';\n        else if (mime.startsWith('image/')) mimeType = mime;\n        else if (fname.match(/\\.(png|jpg|jpeg|webp)$/i)) mimeType = 'image/jpeg';\n        const gr = await this.helpers.httpRequest({\n          method: 'POST',\n          url: 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + geminiKey,\n          body: {\n            contents: [{ parts: [\n              { inline_data: { mime_type: mimeType, data: b64 } },\n              { text: 'Extract all readable text and main headings from this academic file (' + fname + '). Plain text only, max 8000 characters.' }\n            ]}],\n            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }\n          },\n          json: true,\n          timeout: 90000\n        });\n        document_content = (gr?.candidates?.[0]?.content?.parts?.[0]?.text || '').slice(0, 12000);\n        if (!document_content.trim()) apiErrors.push('Gemini vision: no text extracted');\n      } else {\n        document_content = (base.user_message || '') + ' [File: ' + fname + ' — too large or missing GEMINI_API_KEY for vision]';\n        apiErrors.push('Vision skipped');\n      }\n    }\n  } catch (e) { apiErrors.push('File: ' + e.message); document_content = base.user_message || ''; }\n} else {\n  document_content = base.user_message || '';\n  if (base.has_document) apiErrors.push('Could not read file');\n}\nreturn [{ json: { ...base, document_content, api_errors: apiErrors } }];"
+      },
+      "id": "pdf",
+      "name": "02 – Get Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst apiErrors = [...(item.api_errors || [])];\nconst ctx = { intent: 'LECTURE_SUMMARY' };\nctx.document_content = item.document_content || item.user_message || \"\";\n\n\nreturn [{ json: { ...item, collected_context: ctx, api_errors: apiErrors } }];"
+      },
+      "id": "ctx",
+      "name": "03 – Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, gemini_request: {\n  systemInstruction: { parts: [{ text: \"Summarize lecture notes emphasizing structure, key concepts, and revision bullets. Always use: ## 1. Quick Summary ## 2. Important Findings ## 3. Suggested Next Actions ## 4. Draft / Plan / Checklist\" }] },\n  contents: [{ role: 'user', parts: [{ text: JSON.stringify({ message: j.user_message, context: j.collected_context, errors: j.api_errors }) }] }],\n  generationConfig: { temperature: 0.4 },\n} } }];"
+      },
+      "id": "pr",
+      "name": "04 – AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.gemini_request) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ai",
+      "name": "05 – Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        300
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('04 – AI Prompt').first().json;\nconst r = $input.first().json;\nlet reply = r?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '## 1. Quick Summary\\nService error.\\n\\n## 2. Important Findings\\n' + (r?.error?.message || 'Try again') + '\\n\\n## 3. Suggested Next Actions\\n- Retry\\n\\n## 4. Draft / Plan / Checklist\\n- [ ]';\nif (reply.length > 3900) reply = reply.slice(0, 3900) + '…';\nreturn [{ json: { chat_id: m.chat_id, reply_text: reply, intent: 'LECTURE_SUMMARY' } }];"
+      },
+      "id": "fmt",
+      "name": "06 – Format Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "reply_text",
+              "name": "reply_text",
+              "value": "={{ $json.reply_text }}",
+              "type": "string"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "number"
+            },
+            {
+              "id": "intent",
+              "name": "intent",
+              "value": "=LECTURE_SUMMARY",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "ret",
+      "name": "07 – Return",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1740,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "00 – Trigger": {
+      "main": [
+        [
+          {
+            "node": "01 – Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01 – Input": {
+      "main": [
+        [
+          {
+            "node": "02 – Get Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 – Get Document": {
+      "main": [
+        [
+          {
+            "node": "03 – Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 – Build Context": {
+      "main": [
+        [
+          {
+            "node": "04 – AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 – AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "05 – Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 – Gemini": {
+      "main": [
+        [
+          {
+            "node": "06 – Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 – Format Reply": {
+      "main": [
+        [
+          {
+            "node": "07 – Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "aivura"
+    },
+    {
+      "name": "07-lecture-summary"
+    }
+  ],
+  "meta": {
+    "instanceId": "aivura-07-lecture-summary"
+  }
+}
